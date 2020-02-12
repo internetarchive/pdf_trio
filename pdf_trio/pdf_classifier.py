@@ -310,7 +310,6 @@ class PdfClassifier:
             req_json[:80],
             req_json[len(req_json)-50:],
         )
-        ret = 0.5  # zero confidence encoded default
 
         response = requests.post(
             self.bert_tf_server_url + ":predict",
@@ -337,7 +336,6 @@ class PdfClassifier:
         :param jpg_file: tmp jpg image file name, full path.
         :return: encoded confidence as type float with range [0.5,1.0] that example is positive
         """
-        ret = 0.5  # lowest confidence encoded value
         img = cv2.imread(jpg_file).astype(np.float32)
         # we have 224x224, resize to 299x299 for shape (224, 224, 3)
         # ToDo: target size could vary, depending on the pre-trained model, should auto-adjust
