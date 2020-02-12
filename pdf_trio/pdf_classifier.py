@@ -296,21 +296,21 @@ class PdfClassifier:
         req_json = json.dumps({"signature_name": "serving_default", "inputs":  evalue})
         log.debug("BERT: request to %s is: %s ... %s" % (self.bert_tf_server_url + ":predict", req_json[:80], req_json[len(req_json)-50:]))
         ret = 0.5  # zero confidence encoded default
-        try:
-            response = requests.post(self.bert_tf_server_url + ":predict", data=req_json, headers=self.json_content_header)
-            if response.status_code == 200:
-                response_vec = response.json()["outputs"][0]
-                confidence_other = response_vec[0]
-                confidence_research = response_vec[1]
-                log.debug("bert classify %s  other=%.2f research=%.2f" % (trace_id, confidence_other, confidence_research))
-                if confidence_research > confidence_other:
-                    ret = self.encode_confidence("research", confidence_research)
-                else:
-                    ret = self.encode_confidence("other", confidence_other)
-            elif response.status_code == 400:
-                log.warning("HTTP 400 from tf-serving of bert, %s" % response.json())
-        except Exception:
-            log.warning("exception occurred processing REST BERT tensorflow-serving for %s" % trace_id)
+
+        response = requests.post(
+            self.bert_tf_server_url + ":predict",
+            data=req_json,
+            headers=self.json_content_header,
+        )
+        response.raise_for_status()
+        response_vec = response.json()["outputs"][0]
+        confidence_other = response_vec[0]
+        confidence_research = response_vec[1]
+        log.debug("bert classify %s  other=%.2f research=%.2f" % (trace_id, confidence_other, confidence_research))
+        if confidence_research > confidence_other:
+            ret = self.encode_confidence("research", confidence_research)
+        else:
+            ret = self.encode_confidence("other", confidence_other)
         return ret
 
 
@@ -382,19 +382,21 @@ class PdfClassifier:
         img299 = cv2.resize(img, dsize=(299, 299), interpolation=cv2.INTER_LINEAR)
         my_images = np.reshape(img299, (-1, 299, 299, 3))
         req_json = json.dumps({"signature_name": "serving_default", "instances": my_images.tolist()})
-        try:
-            response = requests.post(self.image_tf_server_url + ":predict", data=req_json, headers=self.json_content_header)
-            if response.status_code == 200:
-                response_vec = response.json()["predictions"][0]
-                confidence_other = response_vec[0]
-                confidence_research = response_vec[1]
-                log.debug("image classify %s  other=%.2f research=%.2f" % (jpg_file, confidence_other, confidence_research))
-                if confidence_research > confidence_other:
-                    ret = self.encode_confidence("research", confidence_research)
-                else:
-                    ret = self.encode_confidence("other", confidence_other)
-        except Exception:
-            log.warning("exception occurred processing REST tensorflow-serving for %s" % jpg_file)
+
+        response = requests.post(
+            self.image_tf_server_url + ":predict",
+            data=req_json,
+            headers=self.json_content_header,
+        )
+        response.raise_for_status()
+        response_vec = response.json()["predictions"][0]
+        confidence_other = response_vec[0]
+        confidence_research = response_vec[1]
+        log.debug("image classify %s  other=%.2f research=%.2f" % (jpg_file, confidence_other, confidence_research))
+        if confidence_research > confidence_other:
+            ret = self.encode_confidence("research", confidence_research)
+        else:
+            ret = self.encode_confidence("other", confidence_other)
         return ret
 
 
