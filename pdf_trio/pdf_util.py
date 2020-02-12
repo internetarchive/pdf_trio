@@ -17,6 +17,12 @@ limitations under the License.
 
 """
 
+"""
+PDF processing.
+We use pdftotext (exec'ed) because it works more often than PyPDF2.
+Images from PDFs are created by ImageMagick (and ghostscript).
+"""
+
 import os
 import time
 import pathlib
@@ -29,12 +35,6 @@ import atexit
 import logging
 
 log = logging.getLogger(__name__)
-
-"""
-PDF processing.
-We use pdftotext (exec'ed) because it works more often than PyPDF2.
-Images from PDFs are created by ImageMagick (and ghostscript).
-"""
 
 if not shutil.which('pdftotext'):
     print("ERROR: you do not have pdftotext installed. Install it first before calling this script")
@@ -113,11 +113,14 @@ def extract_pdf_text(pdf_tmp_file):
 def extract_pdf_image(pdf_tmp_file, page=0):
     """
     ImageMagick (and ghostscript) is used to generate the image.
+
     Caller is responsible for removing the jpg.
+
     :param pdf_tmp_file: path to temp file holding pdf content.
     :param page:  page number (from 0)
-    :return: filename of jpg image in temporary area, caller should remove it when done to avoid accumulation,
-        empty string returned if no good image produced.
+    :return: filename of jpg image in temporary area, caller should remove it
+    when done to avoid accumulation, None is returned if no good image
+    produced.
     """
     jpg_name = pdf_tmp_file + ".jpg"
     pageSpec = "[" + str(page) + "]"
@@ -148,11 +151,11 @@ def extract_pdf_image(pdf_tmp_file, page=0):
             # jpg too small, most likely blank
             log.debug("jpg too small for %s, so assumed to be a blank page; removing" % pdf_tmp_file)
             remove_tmp_file(jpg_name)
-            return ""
+            return None
         else:
             # jpg file exists, sufficient size
             return jpg_name
     else:
         # no jpg file was produced
         log.warning("no jpg produced by imagemagick for %s" % pdf_tmp_file)
-        return ""
+        return None
