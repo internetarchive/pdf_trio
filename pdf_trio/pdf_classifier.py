@@ -84,22 +84,28 @@ class PdfClassifier:
         """
         Use the modes param to pick subclassifiers and make an ensemble conclusion.
 
-        example result: {"is_research" : 0.94,
-                    "image" : 0.96,
-                    "linear" : 0.92,
-                    "bert" : 0.91,
-                    "version" : {
-                        "image" : "20190708",
-                        "linear" : "20190720",
-                        "bert" : "20190807",
-                        "urlmeta" : "20190722"
-                                    }
-                    }
+        example result:
+
+            {
+                "ensemble_score" : 0.94,
+                "image_score" : 0.96,
+                "linear_score" : 0.92,
+                "bert_score" : 0.91,
+                "versions" : {
+                    "pdftrio_version": "0.1.0",
+                    "models_date": "2020-01-15",
+                    "git_rev": "2b1845b0",
+                    "image_model" : "20190708",
+                    "linear_model" : "20190720",
+                    "bert_model" : "20190807",
+                }
+            }
+
         :param modes:  comma sep list of 1 or more {auto, image, linear, bert, all}
         :param pdf_filestorage: as FileStorage object (contains a stream).
         :return: map
         """
-        results = {"version": self.version_map}
+        results = {"versions": self.version_map}
         confidence_values = []
         mode_list = modes.split(",")
         pdf_token_list = []
@@ -123,20 +129,20 @@ class PdfClassifier:
             if len(pdf_token_list) != 0:
                 # FastText
                 confidence_linear = self.classify_pdf_linear(pdf_token_list)
-                results['linear'] = confidence_linear
+                results['linear_score'] = confidence_linear
                 confidence_values.append(confidence_linear)
                 if .85 >= confidence_linear >= 0.15:
                     # also check BERT
                     pdf_token_list_trimmed = text_prep.trim_tokens(pdf_token_list, 512)
                     confidence_bert = self.classify_pdf_bert(pdf_token_list_trimmed)
-                    results['bert'] = confidence_bert
+                    results['bert_score'] = confidence_bert
                     confidence_values.append(confidence_bert)
             else:
                 # no tokens, so use image
                 jpg_file_page0 = pdf_util.extract_pdf_image(tmp_pdf_name)
                 # classify pdf_image_page0
                 confidence_image = self.classify_pdf_image(jpg_file_page0)
-                results['image'] = confidence_image
+                results['image_score'] = confidence_image
                 confidence_values.append(confidence_image)
                 # remove tmp jpg
                 if logging.getLogger().getEffectiveLevel() != logging.DEBUG:
@@ -151,7 +157,7 @@ class PdfClassifier:
                         continue  # skip
                     # classify pdf_image_page0
                     confidence_image = self.classify_pdf_image(jpg_file_page0)
-                    results[classifier] = confidence_image
+                    results['image_score'] = confidence_image
                     confidence_values.append(confidence_image)
                     # remove tmp jpg
                     if logging.getLogger().getEffectiveLevel() != logging.DEBUG:
@@ -162,7 +168,7 @@ class PdfClassifier:
                         log.debug("no tokens extracted for %s" % (pdf_filestorage.filename))
                         continue  # skip
                     confidence_linear = self.classify_pdf_linear(pdf_token_list)
-                    results[classifier] = confidence_linear
+                    results['linear_score'] = confidence_linear
                     confidence_values.append(confidence_linear)
                 elif classifier == "bert":
                     if len(pdf_token_list) == 0:
@@ -171,17 +177,17 @@ class PdfClassifier:
                         continue  # skip
                     pdf_token_list_trimmed = text_prep.trim_tokens(pdf_token_list, 512)
                     confidence_bert = self.classify_pdf_bert(pdf_token_list_trimmed)
-                    results[classifier] = confidence_bert
+                    results['bert_score'] = confidence_bert
                     confidence_values.append(confidence_bert)
                 else:
                     log.warning("ignoring unknown classifier ref: " + classifier)
         if logging.getLogger().getEffectiveLevel() != logging.DEBUG:
             pdf_util.remove_tmp_file(tmp_pdf_name)
-        #  compute 'is_research' using confidence_values
+        #  compute 'ensemble_score ' using confidence_values
         if len(confidence_values) != 0:
             confidence_overall = sum(confidence_values) / len(confidence_values)
             # insert confidence_overall
-            results["is_research"] = confidence_overall
+            results['ensemble_score'] = confidence_overall
         return results
 
 

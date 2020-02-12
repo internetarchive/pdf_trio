@@ -64,15 +64,16 @@ def classify_pdf(ctype):
     Example result:
 
         {
-          "is_research" : 0.94,
-          "image" : 0.96,
-          "linear" : 0.92,
-          "bert" : 0.91,
-          "version" : {
-            "image" : "20190708",
-            "linear" : "20190720",
-            "bert" : "20190807",
-            "urlmeta" : "20190722",
+          "status": "success",
+          "ensemble_score" : 0.94,
+          "image_score" : 0.96,
+          "linear_score" : 0.92,
+          "bert_score" : 0.91,
+          "versions" : {
+            "models_date": "2020-01-15",
+            "image_model" : "20190708",
+            "linear_model" : "20190720",
+            "bert_model" : "20190807",
           }
         }
     """

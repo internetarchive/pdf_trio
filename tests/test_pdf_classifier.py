@@ -28,9 +28,9 @@ def test_pdf_classifier_basics():
             pdf_fs = FileStorage(f)
             resp = c.classify_pdf_multi(mode, pdf_fs)
             print(resp)
-            print(PdfClassifier.decode_confidence(resp[mode]))
-            assert resp[mode] != 0.5
-            assert resp['is_research'] != 0.5
+            print(PdfClassifier.decode_confidence(resp[mode + "_score"]))
+            assert resp[mode + "_score"] != 0.5
+            assert resp['ensemble_score'] != 0.5
 
     assert len(responses.calls) == 2
 
@@ -38,6 +38,6 @@ def test_pdf_classifier_basics():
         with open(test_pdf_path, 'rb') as f:
             pdf_fs = FileStorage(f)
             resp = c.classify_pdf_multi(mode, pdf_fs)
-            assert resp['is_research'] != 0.5
+            assert resp['ensemble_score'] != 0.5
 
     assert len(responses.calls) == 4

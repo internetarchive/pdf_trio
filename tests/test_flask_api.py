@@ -4,6 +4,7 @@ import json
 import pytest
 import responses
 
+import pdf_trio
 from fixtures import flask_client
 
 
@@ -67,9 +68,13 @@ def test_api_classify_pdf(flask_client):
                 data=form_data,
             )
             assert response.status_code == 200
+            assert response.json['status'] == "success"
 
             # check that the responses aren't default values
-            assert response.json['is_research'] != 0.5
-            assert response.json['linear'] != 0.5
+            assert response.json['ensemble_score'] != 0.5
+            assert response.json['linear_score'] != 0.5
+            #assert response.json['versions']['model_date']
+            assert response.json['versions']['git_rev']
+            assert response.json['versions']['pdftrio_version'] == pdf_trio.__version__
 
     assert len(responses.calls) == 2
