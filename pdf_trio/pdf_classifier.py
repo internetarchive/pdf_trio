@@ -314,60 +314,6 @@ class PdfClassifier:
         return ret
 
 
-
-    def classify_pdf_image_via_exec(self, jpg_file):
-        """
-        Apply image model to content image
-
-        :param jpg_file: tmp jpg image file name, full path.
-        :return: encoded confidence as type float with range [0.5,1.0] that example is positive
-        """
-        ret = 0.5  # lowest confidence encoded value
-        myenv = {"dummy": "0",
-                "CONDA_DEFAULT_ENV": "tf_hub",
-                "CONDA_PYTHON_EXE": "/home/peb/miniconda3/bin/python",
-                "HOME": "/home/peb",
-                "PATH": "/home/peb/bin:/home/peb/miniconda3/envs/tf_hub/bin:/home/peb/miniconda3/bin:/home/peb/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                "CONDA_EXE": "/home/peb/miniconda3/bin/conda",
-                "CONDA_PREFIX": "/home/peb/miniconda3/envs/tf_hub",
-                "CONDA_PREFIX_1": "/home/peb/miniconda3",
-                "CONDA_SHLVL":"2"
-                }
-        w_dir = "../tf_hub_image_classifier"
-        cmd = [w_dir+'/infer_image_new.py', '--image='+jpg_file, '--graph='+w_dir+'/retrained_graph.pb',
-                '--labels='+w_dir+'/out/retrained_labels.txt', '--input_layer=Placeholder', '--output_layer=final_result']
-        mycwd = "."
-        t0 = time.time()
-        pp = subprocess.Popen(cmd, encoding='utf-8', env=myenv, cwd=mycwd, bufsize=1, universal_newlines=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        try:
-            outs, errs = pp.communicate(timeout=30)
-            # dump stderr if DEBUG
-            if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-                log.debug("infer_image_new.py stderr: %s", errs)
-            # parse outs     ex: research 0.5082055 ./tmp/0b4997a068e557eb92b6adf7875248ec7292dd4a.jpg
-            lines = outs.split('\n')
-            for aline in lines:
-                mytokens = aline.split()
-                if len(mytokens) < 3:
-                    continue
-                label = mytokens[0]
-                if label == "research" or label == "other":
-                    confidence = float(mytokens[1])
-                    if confidence > 0.5:
-                        ret = self.encode_confidence(label, confidence)
-                        break
-        except subprocess.TimeoutExpired:
-            pp.kill()
-            # drain residue so subprocess can really finish
-            outs, errs = pp.communicate()
-            log.warning("classify_pdf_image, command did not terminate in %.2f seconds, terminating." % (time.time()-t0))
-
-
-        #log.info("classify_pdf_image: label=%s confidence=%.2f" % (label, confidence))
-        return ret
-
-
     def classify_pdf_image(self, jpg_file):
         """
         Apply image model to content image using tensorflow-serving.
@@ -392,40 +338,11 @@ class PdfClassifier:
         response_vec = response.json()["predictions"][0]
         confidence_other = response_vec[0]
         confidence_research = response_vec[1]
-        log.debug("image classify %s  other=%.2f research=%.2f" % (jpg_file, confidence_other, confidence_research))
+        log.debug("image classify %s  other=%.2f research=%.2f",
+            jpg_file, confidence_other, confidence_research))
         if confidence_research > confidence_other:
             ret = self.encode_confidence("research", confidence_research)
         else:
             ret = self.encode_confidence("other", confidence_other)
         return ret
 
-
-def main():
-    """
-    Apply the preprocessing to generate
-    """
-    #  ToDo: process PDF files using all classifiers and create various confusion matrices to see where
-    #     models agree/disagree. Data comes from directories associated with a defined category.
-    #     REST api is not used.
-    # init the arg parser
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_positive", type=str, default='',
-                        help="dir. with positive PDF files to process, use a comma sep for multiple dirs",
-                        required=True)
-    parser.add_argument("--input_negative", type=str, default='',
-                        help="dir. with negative PDF files to process, use a comma sep for multiple dirs",
-                        required=True)
-    parser.add_argument("--temp", type=str, default='/tmp', help="temp dir to use during extraction, /tmp default",
-                        required=False)
-    parser.add_argument("--skip", type=str, default='',
-                        help="file containing file basenames to skip, one per line, optional", required=False)
-    parser.add_argument("--testing", default=False, help="testing mode, be verbose, do only a few cycles",
-                        action="store_true")
-
-    # read arguments from the command line
-    args = parser.parse_args()
-
-    # TODO: doesn't actually call anything
-
-if __name__ == '__main__':
-    main()
