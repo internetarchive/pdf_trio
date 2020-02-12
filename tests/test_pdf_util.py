@@ -25,14 +25,3 @@ def test_extract_pdf_image():
     assert img_path.endswith('.jpg')
     os.unlink(img_path)
 
-
-def test_extract_pdf_prev():
-    """
-    Guess these are old/unused functions?
-    """
-
-    test_pdf_path = 'tests/files/research/fea48178ffac3a42035ed27d6e2b897cb570cf13.pdf'
-    text = pdf_util.extract_pdf_text_prev(test_pdf_path)
-
-    assert text
-    assert "Yoshiyuki" in text

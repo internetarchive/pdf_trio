@@ -54,21 +54,6 @@ def extract_tokens(str_content):
     return tokens
 
 
-def basename(fpath):
-    offset_slash = fpath.rfind("/")
-    if offset_slash >= 0:
-        fpath = fpath[offset_slash + 1:]
-    return fpath
-
-
-def dirname(fpath):
-    offset_slash = fpath.rfind("/")
-    if offset_slash <= 0:
-        return "."
-    fpath = fpath[:offset_slash]
-    return fpath
-
-
 def trim_tokens(file_token_list, max_tokens):
     """
     If given list has more than given max_tokens, return an even split between the head and tail of the
