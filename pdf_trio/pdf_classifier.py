@@ -217,15 +217,18 @@ class PdfClassifier:
     @staticmethod
     def encode_confidence(label, confidence):
         """
-        Encode label,confidence into a single float [0.0, 1.0] so that 1.0 means perfect confidence in positive case,
-        and 0.0 is perfect confidence for negative case.
-        confidence 0 means 'other', 1.0 means 'research'
+        Encode label,confidence into a single float [0.0, 1.0] so that 1.0
+        means perfect confidence in positive case, and 0.0 is perfect
+        confidence for negative case.  confidence 0 means 'other', 1.0 means
+        'research'
+
         :param label: 'research' or '__label__research' versus 'other' or '__label__other'
         :param confidence: [0.5, 1.0]
         :return: [0.0, 1.0]
         """
         if confidence < 0.5:
-            log.error("encode_confidence called improperly with label=%s confidence=%f" % (label, confidence))
+            log.error("encode_confidence called improperly with label=%s confidence=%f",
+                label, confidence)
         if confidence > 1.0:
             confidence = 1.0
         if confidence < 0.0:
@@ -279,7 +282,10 @@ class PdfClassifier:
         # for REST request, need examples=[{"input_ids": [], "input_mask":[], "label_ids":[0], "segment_ids":[]}]
         input_ids = token_ids
         if tcount < 512:
-            input_mask = np.concatenate((np.ones(tcount, dtype=int), np.zeros(512-tcount, dtype=int)), axis=0).tolist()
+            input_mask = np.concatenate(
+                (np.ones(tcount, dtype=int), np.zeros(512-tcount, dtype=int)),
+                axis=0,
+            ).tolist()
         else:
             input_mask = np.ones(512, dtype=int).tolist()
         label_ids = [0]  # dummy, one int, not needed for prediction
@@ -289,12 +295,21 @@ class PdfClassifier:
         #   Columnar format means each named input can have a list of values, but we actually are only submitting
         #   one at a time here.
         #   label_ids is a scalar (placeholder shape [None]).
-        evalue = {"input_ids": [input_ids],
-                "input_mask": [input_mask],
-                "label_ids": label_ids,
-                "segment_ids": [segment_ids]}
-        req_json = json.dumps({"signature_name": "serving_default", "inputs":  evalue})
-        log.debug("BERT: request to %s is: %s ... %s" % (self.bert_tf_server_url + ":predict", req_json[:80], req_json[len(req_json)-50:]))
+        evalue = {
+            "input_ids": [input_ids],
+            "input_mask": [input_mask],
+            "label_ids": label_ids,
+            "segment_ids": [segment_ids],
+        }
+        req_json = json.dumps({
+            "signature_name": "serving_default",
+            "inputs":  evalue,
+        })
+        log.debug("BERT: request to %s is: %s ... %s",
+            self.bert_tf_server_url + ":predict",
+            req_json[:80],
+            req_json[len(req_json)-50:],
+        )
         ret = 0.5  # zero confidence encoded default
 
         response = requests.post(
@@ -306,7 +321,8 @@ class PdfClassifier:
         response_vec = response.json()["outputs"][0]
         confidence_other = response_vec[0]
         confidence_research = response_vec[1]
-        log.debug("bert classify %s  other=%.2f research=%.2f" % (trace_id, confidence_other, confidence_research))
+        log.debug("bert classify %s  other=%.2f research=%.2f",
+            trace_id, confidence_other, confidence_research)
         if confidence_research > confidence_other:
             ret = self.encode_confidence("research", confidence_research)
         else:
@@ -327,7 +343,10 @@ class PdfClassifier:
         # ToDo: target size could vary, depending on the pre-trained model, should auto-adjust
         img299 = cv2.resize(img, dsize=(299, 299), interpolation=cv2.INTER_LINEAR)
         my_images = np.reshape(img299, (-1, 299, 299, 3))
-        req_json = json.dumps({"signature_name": "serving_default", "instances": my_images.tolist()})
+        req_json = json.dumps({
+            "signature_name": "serving_default",
+            "instances": my_images.tolist(),
+        })
 
         response = requests.post(
             self.image_tf_server_url + ":predict",
@@ -339,7 +358,7 @@ class PdfClassifier:
         confidence_other = response_vec[0]
         confidence_research = response_vec[1]
         log.debug("image classify %s  other=%.2f research=%.2f",
-            jpg_file, confidence_other, confidence_research))
+            jpg_file, confidence_other, confidence_research)
         if confidence_research > confidence_other:
             ret = self.encode_confidence("research", confidence_research)
         else:
