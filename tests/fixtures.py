@@ -26,6 +26,5 @@ def skip_if_no_tensorflow():
     """
     try:
         requests.get('http://localhost:8501/')
-        requests.get('http://localhost:8601/')
     except requests.exceptions.ConnectionError:
         pytest.skip("backend tensorflow-serving not available")

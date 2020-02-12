@@ -74,7 +74,7 @@ Use the default local configuration:
 
 Run just the tensorflow-serving back-end daemons using docker-compose like:
 
-    docker-compose up tfserving_bert tfserving_image
+    docker-compose up tfserving
 
 Unit tests partially mock the back-end tensorflow-serving daemons, and any
 tests which do call these daemons will automatically skip if they are not

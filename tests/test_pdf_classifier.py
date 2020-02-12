@@ -21,7 +21,7 @@ def test_pdf_classifier_basics():
     tf_image_model_version = "qwert9866"
 
     # these are the version fetches
-    responses.add(responses.GET, 'http://localhost:8601/v1/models/bert_model',
+    responses.add(responses.GET, 'http://localhost:8501/v1/models/bert_model',
         status=200, json={
             "model_version_status": {
                 "state": "AVAILABLE",
@@ -37,7 +37,7 @@ def test_pdf_classifier_basics():
     })
 
     # these are the actual classify calls
-    responses.add(responses.POST, 'http://localhost:8601/v1/models/bert_model:predict',
+    responses.add(responses.POST, 'http://localhost:8501/v1/models/bert_model:predict',
         json=tf_bert_json, status=200)
     responses.add(responses.POST, 'http://localhost:8501/v1/models/image_model:predict',
         json=tf_image_json, status=200)

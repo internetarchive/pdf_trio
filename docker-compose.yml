@@ -1,18 +1,6 @@
 version: '2'
 services:
-  tfserving_bert:
-    image: tensorflow/serving
-    ports:
-      - "8601:8501"
-    environment:
-      TF_XLA_FLAGS: "--tf_xla_cpu_global_jit"
-      KMP_AFFINITY: "granularity=fine,compact,1,0"
-      KMP_BLOCKTIME: "0"
-      OMP_NUM_THREADS: "4"
-      MODEL_NAME: "bert_model"
-    volumes:
-      - ./model_snapshots/bert_models:/models/bert_model
-  tfserving_image:
+  tfserving:
     image: tensorflow/serving
     ports:
       - "8501:8501"
@@ -21,16 +9,19 @@ services:
       KMP_AFFINITY: "granularity=fine,compact,1,0"
       KMP_BLOCKTIME: "0"
       OMP_NUM_THREADS: "4"
-      MODEL_NAME: "image_model"
+      MODEL_NAME: "bert_model"
     volumes:
+      - ./tfserving_models_docker.config:/models/tfserving_models.config
+      - ./model_snapshots/bert_models:/models/bert_model
       - ./model_snapshots/pdf_image_classifier_model:/models/image_model
+    command: "--model_config_file=/models/tfserving_models.config"
   api:
     build: .
     ports:
       - "3939:3939"
     environment:
       TF_IMAGE_SERVER_URL: "http://localhost:8501/v1"
-      TF_BERT_SERVER_URL: "http://localhost:8601/v1"
+      TF_BERT_SERVER_URL: "http://localhost:8501/v1"
       FT_MODEL: "/models/fastText/dataset20000_20190818.bin"
       FT_URL_MODEL: "/models/fastText/url_dataset20000_20190817.bin"
       TF_BERT_VOCAB_PATH: "/models/bert_model/multi_cased_L-12_H-768_A-12_vocab.txt"
@@ -39,5 +30,4 @@ services:
       - ./model_snapshots/fastText_models:/models/fastText
       - ./model_snapshots/bert_models:/models/bert_model
     depends_on:
-      - tfserving_bert
-      - tfserving_image
+      - tfserving
