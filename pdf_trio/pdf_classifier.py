@@ -45,25 +45,22 @@ class PdfClassifier:
 
     def __init__(self, **kwargs):
 
-        self.version_map = {
-            "image": "20190708",
-            "linear": "20190720",
-            "bert": "20190923T2215",
-            "urlmeta": "20190722"
-        }
+        self.version_map = {}
         self.json_content_header = {"Content-Type": "application/json"}
 
         image_server_prefix = os.environ.get('TF_IMAGE_SERVER_URL')
         if not image_server_prefix:
             raise ValueError('Missing TF image classifier URL config, ' +
                 'define env var TF_IMAGE_SERVER_URL')
-        self.image_tf_server_url = image_server_prefix + "/models/image_model:predict"
+        self.image_tf_server_url = image_server_prefix + "/models/image_model"
+        # self.version_map['image'] is lazy-loaded
 
         bert_server_prefix = os.environ.get('TF_BERT_SERVER_URL')
         if not bert_server_prefix :
             raise ValueError('Missing TF BERT classifier URL config, ' +
                 'define env var TF_BERT_SERVER_URL')
-        self.bert_tf_server_url = bert_server_prefix + "/models/bert_model:predict"
+        self.bert_tf_server_url = bert_server_prefix + "/models/bert_model"
+        # self.version_map['bert'] is lazy-loaded
 
         vocab_path = os.environ.get('TF_BERT_VOCAB_PATH')
         if not vocab_path:
@@ -79,6 +76,30 @@ class PdfClassifier:
                 'define env var FT_MODEL=full_path_to_basename')
         log.warning("Loading fasttext model...")
         self.fasttext_model = fasttext.load_model(model_path)
+        self.version_map["linear_model"] = os.environ.get('FT_MODEL_VERSION') or None
+
+        self.version_map["models_date"] = os.environ.get('PDFTRIO_MODELS_DATE') or None
+
+    @staticmethod
+    def get_tf_model_version(url):
+        """
+        Connect to back-end tensorflow-serving APIs and fetch model version
+        metadata
+        """
+        resp = requests.get(url)
+        resp.raise_for_status()
+        status = resp.json()['model_version_status']
+        assert status['state'] == "AVAILABLE"
+        return status['version']
+
+    def lazy_load_versions(self):
+        """
+        Want to move these back-end connections out of __init__()
+        """
+        if not 'image_model' in self.version_map:
+            self.version_map['image_model'] = self.get_tf_model_version(self.image_tf_server_url)
+        if not 'bert_model' in self.version_map:
+            self.version_map['bert_model'] = self.get_tf_model_version(self.bert_tf_server_url)
 
     def classify_pdf_multi(self, modes, pdf_filestorage):
         """
@@ -105,6 +126,8 @@ class PdfClassifier:
         :param pdf_filestorage: as FileStorage object (contains a stream).
         :return: map
         """
+
+        self.lazy_load_versions()
         results = {"versions": self.version_map}
         confidence_values = []
         mode_list = modes.split(",")
@@ -271,10 +294,10 @@ class PdfClassifier:
                 "label_ids": label_ids,
                 "segment_ids": [segment_ids]}
         req_json = json.dumps({"signature_name": "serving_default", "inputs":  evalue})
-        log.debug("BERT: request to %s is: %s ... %s" % (self.bert_tf_server_url, req_json[:80], req_json[len(req_json)-50:]))
+        log.debug("BERT: request to %s is: %s ... %s" % (self.bert_tf_server_url + ":predict", req_json[:80], req_json[len(req_json)-50:]))
         ret = 0.5  # zero confidence encoded default
         try:
-            response = requests.post(self.bert_tf_server_url, data=req_json, headers=self.json_content_header)
+            response = requests.post(self.bert_tf_server_url + ":predict", data=req_json, headers=self.json_content_header)
             if response.status_code == 200:
                 response_vec = response.json()["outputs"][0]
                 confidence_other = response_vec[0]
@@ -360,7 +383,7 @@ class PdfClassifier:
         my_images = np.reshape(img299, (-1, 299, 299, 3))
         req_json = json.dumps({"signature_name": "serving_default", "instances": my_images.tolist()})
         try:
-            response = requests.post(self.image_tf_server_url, data=req_json, headers=self.json_content_header)
+            response = requests.post(self.image_tf_server_url + ":predict", data=req_json, headers=self.json_content_header)
             if response.status_code == 200:
                 response_vec = response.json()["predictions"][0]
                 confidence_other = response_vec[0]

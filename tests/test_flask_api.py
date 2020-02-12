@@ -53,6 +53,25 @@ def test_api_classify_pdf(flask_client):
     tf_bert_json = {'outputs': [[0.000686553773, 0.999313474]]}
     tf_image_json = {'predictions': [[0.999999881, 1.45352288e-07]]}
 
+    # these are the version fetches
+    tf_bert_model_version = "asdf1234"
+    tf_image_model_version = "qwert9866"
+    responses.add(responses.GET, 'http://localhost:8601/v1/models/bert_model',
+        status=200, json={
+            "model_version_status": {
+                "state": "AVAILABLE",
+                "version": tf_bert_model_version,
+            }
+    })
+    responses.add(responses.GET, 'http://localhost:8501/v1/models/image_model',
+        status=200, json={
+            "model_version_status": {
+                "state": "AVAILABLE",
+                "version": tf_image_model_version,
+            }
+    })
+
+    # these are the actual classify calls
     responses.add(responses.POST, 'http://localhost:8601/v1/models/bert_model:predict',
         json=tf_bert_json, status=200)
     responses.add(responses.POST, 'http://localhost:8501/v1/models/image_model:predict',
@@ -73,8 +92,11 @@ def test_api_classify_pdf(flask_client):
             # check that the responses aren't default values
             assert response.json['ensemble_score'] != 0.5
             assert response.json['linear_score'] != 0.5
-            #assert response.json['versions']['model_date']
             assert response.json['versions']['git_rev']
             assert response.json['versions']['pdftrio_version'] == pdf_trio.__version__
+            assert response.json['versions']['image_model'] == tf_image_model_version
+            assert response.json['versions']['bert_model'] == tf_bert_model_version
+            assert response.json['versions']['linear_model']  # from environ
+            assert response.json['versions']['models_date']  # from environ
 
-    assert len(responses.calls) == 2
+    assert len(responses.calls) == 4
