@@ -21,6 +21,9 @@ import raven
 from raven.contrib.flask import Sentry
 from flask import Flask
 
+# this is the canonical location for version of this module
+__version__ = "0.1.0"
+
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -34,6 +37,8 @@ def create_app(test_config=None):
 
     app.config.from_mapping(
         SECRET_KEY='dev',
+        GIT_REV = GIT_RELEASE,
+        VERSION = __version__,
         SENTRY_CONFIG = {
             'enable-threads': True, # for uWSGI
             'release': GIT_RELEASE,

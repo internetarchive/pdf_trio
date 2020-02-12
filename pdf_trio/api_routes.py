@@ -18,7 +18,7 @@ limitations under the License.
 import time
 import logging
 
-from flask import request, jsonify, abort, Blueprint
+from flask import request, jsonify, abort, Blueprint, current_app
 
 from pdf_trio import pdf_classifier, url_classifier
 
@@ -84,5 +84,10 @@ def classify_pdf(ctype):
     pdf_filestorage = request.files['pdf_content']
     log.debug("type=%s  pdf_content for %s" % (ctype, pdf_filestorage.filename))
     results = bp.pdf_classifier.classify_pdf_multi(ctype, pdf_filestorage)
+    results['status'] = "success"
+    if current_app.config['GIT_REV']:
+        results['versions']['git_rev'] = current_app.config['GIT_REV']
+    if current_app.config['VERSION']:
+        results['versions']['pdftrio_version'] = current_app.config['VERSION']
     return jsonify(results), 200
 
