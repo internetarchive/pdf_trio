@@ -84,10 +84,14 @@ def classify_pdf(ctype):
     pdf_filestorage = request.files['pdf_content']
     log.debug("type=%s  pdf_content for %s" % (ctype, pdf_filestorage.filename))
     results = bp.pdf_classifier.classify_pdf_multi(ctype, pdf_filestorage)
-    results['status'] = "success"
     if current_app.config['GIT_REV']:
         results['versions']['git_rev'] = current_app.config['GIT_REV']
     if current_app.config['VERSION']:
         results['versions']['pdftrio_version'] = current_app.config['VERSION']
-    return jsonify(results), 200
+    if 'ensemble_score' in results:
+        results['status'] = "success"
+        return jsonify(results), 200
+    else:
+        results['status'] = "error"
+        return jsonify(results), 400
 
