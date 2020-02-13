@@ -88,7 +88,7 @@ class PdfClassifier:
         """
         resp = requests.get(url)
         resp.raise_for_status()
-        status = resp.json()['model_version_status']
+        status = resp.json()['model_version_status'][0]
         assert status['state'] == "AVAILABLE"
         return status['version']
 

@@ -34,6 +34,9 @@ def do_classify_on_pdf(pdf_file_path, flask_client):
     # check that the responses aren't default values
     assert response.json['ensemble_score'] != 0.5
     assert response.json['linear_score'] != 0.5
+    assert response.json['versions']['bert_model']
+    assert response.json['versions']['pdftrio_version']
+    assert response.json['versions']['models_date']
 
 
 def collect_files(dir_path):

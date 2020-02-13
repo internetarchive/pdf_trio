@@ -58,17 +58,21 @@ def test_api_classify_pdf(flask_client):
     tf_image_model_version = "qwert9866"
     responses.add(responses.GET, 'http://localhost:8501/v1/models/bert_model',
         status=200, json={
-            "model_version_status": {
-                "state": "AVAILABLE",
-                "version": tf_bert_model_version,
-            }
+            "model_version_status": [
+                {
+                    "state": "AVAILABLE",
+                    "version": tf_bert_model_version,
+                }
+            ]
     })
     responses.add(responses.GET, 'http://localhost:8501/v1/models/image_model',
         status=200, json={
-            "model_version_status": {
-                "state": "AVAILABLE",
-                "version": tf_image_model_version,
-            }
+            "model_version_status": [
+                {
+                    "state": "AVAILABLE",
+                    "version": tf_image_model_version,
+                }
+            ]
     })
 
     # these are the actual classify calls
