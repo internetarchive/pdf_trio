@@ -175,7 +175,7 @@ class PdfClassifier:
             for classifier in mode_list:
                 if classifier == "image":
                     jpg_file_page0 = pdf_util.extract_pdf_image(tmp_pdf_name)
-                    if len(jpg_file_page0) == 0:
+                    if not jpg_file_page0:
                         log.debug("no jpg for %s" % (pdf_filestorage.filename))
                         continue  # skip
                     # classify pdf_image_page0
