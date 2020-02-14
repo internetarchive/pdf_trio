@@ -129,6 +129,7 @@ class PdfClassifier:
 
         self.lazy_load_versions()
         results = {"versions": self.version_map}
+        timing = dict()
         confidence_values = []
         mode_list = modes.split(",")
         pdf_token_list = []
@@ -142,7 +143,9 @@ class PdfClassifier:
         # look ahead to see if text is required, so we can extract that now
         if ('linear' in mode_list) or ('bert' in mode_list) or ('auto' in mode_list):
             # extract text
+            start = time.time()
             pdf_raw_text = pdf_util.extract_pdf_text(tmp_pdf_name)
+            timing['extract_pdf_text'] = time.time() - start
             if len(pdf_raw_text) < 300:
                 pdf_token_list = []  # too short to be useful
             else:
@@ -151,20 +154,28 @@ class PdfClassifier:
             # start with fastest, use confidence thresholds to short circuit
             if len(pdf_token_list) != 0:
                 # FastText
+                start = time.time()
                 confidence_linear = self.classify_pdf_linear(pdf_token_list)
+                timing['classify_linear'] = time.time() - start
                 results['linear_score'] = confidence_linear
                 confidence_values.append(confidence_linear)
                 if .85 >= confidence_linear >= 0.15:
                     # also check BERT
                     pdf_token_list_trimmed = text_prep.trim_tokens(pdf_token_list, 512)
+                    start = time.time()
                     confidence_bert = self.classify_pdf_bert(pdf_token_list_trimmed)
+                    timing['classify_bert'] = time.time() - start
                     results['bert_score'] = confidence_bert
                     confidence_values.append(confidence_bert)
             else:
                 # no tokens, so use image
+                start = time.time()
                 jpg_file_page0 = pdf_util.extract_pdf_image(tmp_pdf_name)
+                timing['extract_pdf_image'] = time.time() - start
                 # classify pdf_image_page0
+                start = time.time()
                 confidence_image = self.classify_pdf_image(jpg_file_page0)
+                timing['classify_image'] = time.time() - start
                 results['image_score'] = confidence_image
                 confidence_values.append(confidence_image)
                 # remove tmp jpg
@@ -190,7 +201,9 @@ class PdfClassifier:
                         # cannot use this classifier if no tokens extracted
                         log.debug("no tokens extracted for %s" % (pdf_filestorage.filename))
                         continue  # skip
+                    start = time.time()
                     confidence_linear = self.classify_pdf_linear(pdf_token_list)
+                    timing['classify_linear'] = time.time() - start
                     results['linear_score'] = confidence_linear
                     confidence_values.append(confidence_linear)
                 elif classifier == "bert":
@@ -199,7 +212,9 @@ class PdfClassifier:
                         log.debug("no tokens extracted for %s" % (pdf_filestorage.filename))
                         continue  # skip
                     pdf_token_list_trimmed = text_prep.trim_tokens(pdf_token_list, 512)
+                    start = time.time()
                     confidence_bert = self.classify_pdf_bert(pdf_token_list_trimmed)
+                    timing['classify_bert'] = time.time() - start
                     results['bert_score'] = confidence_bert
                     confidence_values.append(confidence_bert)
                 else:
@@ -211,6 +226,7 @@ class PdfClassifier:
             confidence_overall = sum(confidence_values) / len(confidence_values)
             # insert confidence_overall
             results['ensemble_score'] = confidence_overall
+        results['timing'] = timing
         return results
 
 
