@@ -145,7 +145,7 @@ class PdfClassifier:
             # extract text
             start = time.time()
             pdf_raw_text = pdf_util.extract_pdf_text(tmp_pdf_name)
-            timing['extract_pdf_text'] = time.time() - start
+            timing['extract_text'] = time.time() - start
             if len(pdf_raw_text) < 300:
                 pdf_token_list = []  # too short to be useful
             else:
@@ -171,7 +171,7 @@ class PdfClassifier:
                 # no tokens, so use image
                 start = time.time()
                 jpg_file_page0 = pdf_util.extract_pdf_image(tmp_pdf_name)
-                timing['extract_pdf_image'] = time.time() - start
+                timing['extract_image'] = time.time() - start
                 # classify pdf_image_page0
                 start = time.time()
                 confidence_image = self.classify_pdf_image(jpg_file_page0)
@@ -185,12 +185,16 @@ class PdfClassifier:
             # apply named classifiers
             for classifier in mode_list:
                 if classifier == "image":
+                    start = time.time()
                     jpg_file_page0 = pdf_util.extract_pdf_image(tmp_pdf_name)
+                    timing['extract_image'] = time.time() - start
                     if not jpg_file_page0:
                         log.debug("no jpg for %s" % (pdf_filestorage.filename))
                         continue  # skip
                     # classify pdf_image_page0
+                    start = time.time()
                     confidence_image = self.classify_pdf_image(jpg_file_page0)
+                    timing['classify_image'] = time.time() - start
                     results['image_score'] = confidence_image
                     confidence_values.append(confidence_image)
                     # remove tmp jpg
