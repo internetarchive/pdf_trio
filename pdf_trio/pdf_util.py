@@ -89,24 +89,22 @@ def extract_pdf_text(pdf_tmp_file):
     :param pdf_tmp_file: path to (temp) pdf file.
     :return: string of extracted human readable text from PDF, zero length string if could not extract or no text.
     """
-    txt_name = pdf_tmp_file + ".txt"
+    text = ""
+    #txt_name = pdf_tmp_file + ".txt"
     # start subprocess
-    p_args = ['pdftotext', '-nopgbrk', '-eol', 'unix', '-enc', 'UTF-8', pdf_tmp_file, txt_name]
+    p_cmd = "cat " + pdf_tmp_file + " | pdftotext -nopgbrk -eol unix -enc UTF-8 - -"
     t0 = time.time()
-    pp = subprocess.Popen(p_args, encoding='utf-8', bufsize=1, universal_newlines=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    pp = subprocess.Popen(p_cmd, encoding='utf-8', bufsize=1, universal_newlines=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     try:
         outs, errs = pp.communicate(timeout=30)
         # outs and errs are file handles
+        text = outs.read() # get text from file
     except subprocess.TimeoutExpired:
         pp.kill()
         # drain residue so subprocess can really finish
         outs, errs = pp.communicate()
         log.warning("pdftotext, command did not terminate in %.2f seconds, terminating." % (time.time() - t0))
-    # get text from file
-    with open(txt_name, 'r', encoding='utf-8') as f:
-        text = f.read()
-    remove_tmp_file(txt_name)
     return text
 
 
