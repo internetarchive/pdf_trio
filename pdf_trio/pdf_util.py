@@ -99,7 +99,7 @@ def extract_pdf_text(pdf_tmp_file):
     try:
         outs, errs = pp.communicate(timeout=30)
         # outs and errs are file handles
-        text = outs.read() # get text from file
+        text = outs # get text from file
     except subprocess.TimeoutExpired:
         pp.kill()
         # drain residue so subprocess can really finish
