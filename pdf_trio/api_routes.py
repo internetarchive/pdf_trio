@@ -19,14 +19,12 @@ import time
 import logging
 
 from flask import request, jsonify, abort, Blueprint, current_app
-
 from pdf_trio import pdf_classifier, url_classifier
 
 
 logging.basicConfig(filename='research-pub.log', level=logging.DEBUG)
 log = logging.getLogger(__name__)
 log.info("STARTING   STARTING   STARTING   STARTING   STARTING   STARTING   STARTING")
-
 
 bp = Blueprint("classify", __name__)
 
@@ -82,8 +80,11 @@ def classify_pdf(ctype):
     if ctype is None:
         ctype = "auto"
     pdf_filestorage = request.files['pdf_content']
-    log.debug("type=%s  pdf_content for %s" % (ctype, pdf_filestorage.filename))
-    results = bp.pdf_classifier.classify_pdf_multi(ctype, pdf_filestorage)
+    filename = pdf_filestorage.filename
+    pdf_stream = pdf_filestorage.stream
+    pdf_content = pdf_stream.read()
+    log.debug("type=%s  pdf_content for %s with length %d" % (ctype, filename, len(pdf_content)))
+    results = bp.pdf_classifier.classify_pdf_multi(ctype, pdf_content, filename)
     if current_app.config['GIT_REV']:
         results['versions']['git_rev'] = current_app.config['GIT_REV']
     if current_app.config['VERSION']:
