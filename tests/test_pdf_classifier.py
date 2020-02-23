@@ -48,8 +48,8 @@ def test_pdf_classifier_basics():
 
     for mode in ("linear", "bert", "image"):
         with open(test_pdf_path, 'rb') as f:
-            pdf_fs = FileStorage(f)
-            resp = c.classify_pdf_multi(mode, pdf_fs)
+            pdf_content = f.read()
+            resp = c.classify_pdf_multi(mode, pdf_content, test_pdf_path)
             print(resp)
             print(PdfClassifier.decode_confidence(resp[mode + "_score"]))
             assert resp[mode + "_score"] != 0.5
@@ -59,8 +59,8 @@ def test_pdf_classifier_basics():
 
     for mode in ("auto", "all"):
         with open(test_pdf_path, 'rb') as f:
-            pdf_fs = FileStorage(f)
-            resp = c.classify_pdf_multi(mode, pdf_fs)
+            pdf_content = f.read()
+            resp = c.classify_pdf_multi(mode, pdf_content, test_pdf_path)
             assert resp['ensemble_score'] != 0.5
 
     assert len(responses.calls) == 6
