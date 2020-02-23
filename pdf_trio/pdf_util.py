@@ -152,7 +152,8 @@ def extract_pdf_image(pdf_content, trace_name, page=0):
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         log.debug("ImageMagick Command=" + " ".join(convert_cmd))
     t0 = time.time()
-    pp = subprocess.Popen(convert_cmd, bufsize=262144, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    pp = subprocess.Popen(convert_cmd, bufsize=262144, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
     try:
         pp.stdin.write(pdf_content)
     except IOError:
