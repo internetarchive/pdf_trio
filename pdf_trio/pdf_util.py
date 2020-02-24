@@ -163,7 +163,6 @@ def extract_pdf_image(pdf_content, trace_name, page=0):
         outs, errs = pp.communicate(timeout=30)
         # get jpg bytes
         jpg_content = outs
-        print("jpg_content length=%d" % (len(jpg_content)))
         # check if jpg sufficient size
         if len(jpg_content) <= 3000:
             jpg_content = None  # probably a blank image, so ignore it
