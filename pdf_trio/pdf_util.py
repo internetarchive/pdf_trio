@@ -163,6 +163,7 @@ def extract_pdf_image(pdf_content, trace_name, page=0):
         outs, errs = pp.communicate(timeout=30)
         # get jpg bytes
         jpg_content = outs
+        print("jpg_content length=%d" % (len(jpg_content)))
         # check if jpg sufficient size
         if len(jpg_content) <= 3000:
             jpg_content = None  # probably a blank image, so ignore it
@@ -176,8 +177,9 @@ def extract_pdf_image(pdf_content, trace_name, page=0):
     if jpg_content is None:
         return None
     # convert jpg_content to image as array
-    img = cv2.imread(BytesIO(jpg_content)).astype(np.float32)
+    img_stream = BytesIO(jpg_content)
+    img_array = cv2.imdecode(np.fromstring(img_stream.read(), np.uint8), cv2.IMREAD_COLOR).astype(np.float32)
     # we have 224x224, resize to 299x299 for shape (224, 224, 3)
     # ToDo: target size could vary, depending on the pre-trained model, should auto-adjust
-    img299 = cv2.resize(img, dsize=(299, 299), interpolation=cv2.INTER_LINEAR)
+    img299 = cv2.resize(img_array, dsize=(299, 299), interpolation=cv2.INTER_LINEAR)
     return img299

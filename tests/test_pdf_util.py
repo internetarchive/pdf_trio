@@ -22,14 +22,13 @@ def test_extract_pdf_image():
     with open(test_pdf_path, 'rb') as f:
         pdf_content = f.read()
         img_as_array = pdf_util.extract_pdf_image(pdf_content, test_pdf_path)
+    print("img_as_array type is %s" % (type(img_as_array)))
     # shape is (299, 299, 3)
-    assert img_as_array
+    assert img_as_array is not None
     assert img_as_array.shape[0] == 299
     assert img_as_array.shape[1] == 299
     assert img_as_array.shape[2] == 3
+    #   test "no image"  ; the pdf above has only one page 
     img_as_array = pdf_util.extract_pdf_image(pdf_content, test_pdf_path, page=2)
     # shape is (299, 299, 3)
-    assert img_as_array
-    assert img_as_array.shape[0] == 299
-    assert img_as_array.shape[1] == 299
-    assert img_as_array.shape[2] == 3
+    assert img_as_array is None
