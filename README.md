@@ -148,7 +148,6 @@ The following env vars must be defined to run this API service:
 
 - `FT_MODEL` full path to the FastText model for linear classifier
 - `FT_URL_MODEL` path to FastText model for URL classifier
-- `TEMP` path to temp area, /tmp by default
 - `TF_IMAGE_SERVER_URL` base API URL for image tensorflow-serving process
 - `TF_BERT_SERVER_URL` base API URL for BERT tensorflow-serving process
 

@@ -23,17 +23,10 @@ We use pdftotext (exec'ed) because it works more often than PyPDF2.
 Images from PDFs are created by ImageMagick (and ghostscript).
 """
 
-import os
 from io import BytesIO
-import errno
-import time
-import pathlib
 import time
 import shutil
 import subprocess
-import random
-import datetime
-import atexit
 import logging
 import numpy as np
 from cv2 import cv2  # pip install opencv-python  to get this
@@ -47,44 +40,6 @@ if not shutil.which('pdftotext'):
 if not shutil.which('convert'):
     print("ERROR: you do not have convert from ImageMagick installed. Install it first before calling this script")
     log.error("the required executable convert from ImageMagick which is not installed")
-
-TEMP = os.environ.get('TEMP')
-if TEMP is None:
-    TEMP = "/tmp"
-
-start_datetime = datetime.datetime.now()
-start_timestamp = start_datetime.isoformat().split('.')[0]
-start_timestamp = start_timestamp.replace(":", "").replace("-", "")
-tmp_area = TEMP + "/research-pub-area_" + start_timestamp
-tmp_path = pathlib.Path(tmp_area)
-tmp_path.mkdir(parents=True, exist_ok=True)
-
-
-def exit_handler():
-    shutil.rmtree(tmp_area, ignore_errors=True)
-
-
-atexit.register(exit_handler)  # remove tmp_area on exit
-
-
-def tmp_file_name(prefix="f", suffix=".pdf"):
-    return str(tmp_path) + "/" + str(prefix) + str(random.randint(1, 1000000000)) + suffix
-
-
-def write_tmp_file(content):
-    """
-    :param content: byte string to write into a temp file
-    :return: full path to the file
-    """
-    name = tmp_file_name()
-    with open(name, 'wb') as f:
-        f.write(content)
-    return name
-
-
-def remove_tmp_file(name):
-    if os.path.exists(name):
-        os.remove(name)
 
 
 def extract_pdf_text(pdf_content, trace_name):

@@ -23,7 +23,7 @@ from raven.contrib.flask import Sentry
 from flask import Flask, Request
 
 # this is the canonical location for version of this module
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 class RAMOnlyRequest(Request):
