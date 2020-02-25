@@ -145,10 +145,10 @@ def extract_pdf_image(pdf_content, trace_name, page=0):
     # Use pipes so that stderr can be collected (and not just mixed into main process stderr, hiding other errors)
 
     # the parameters here must match training to maximize accuracy
-    convert_cmd = ['convert', "-" + pageSpec, '-background', 'white',
+    convert_cmd = ['convert', "pdf:-" + pageSpec, '-background', 'white',
                    '-alpha', 'remove', '-equalize', '-quality', '95',
                    '-thumbnail', '156x', '-gravity', 'north', '-extent',
-                   '224x224', "-"]
+                   '224x224', "jpg:-"]
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         log.debug("ImageMagick Command=" + " ".join(convert_cmd))
     t0 = time.time()
