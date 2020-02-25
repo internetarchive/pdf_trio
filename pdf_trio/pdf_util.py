@@ -177,7 +177,12 @@ def extract_pdf_image(pdf_content, trace_name, page=0):
         return None
     # convert jpg_content to image as array
     img_stream = BytesIO(jpg_content)
-    img_array = cv2.imdecode(np.fromstring(img_stream.read(), np.uint8), cv2.IMREAD_COLOR).astype(np.float32)
+    img_array = cv2.imdecode(np.frombuffer(img_stream.read(), np.uint8), cv2.IMREAD_COLOR)
+    if img_array is None:
+        log.warning("imdecode failed for %s" % (trace_name))
+        return None
+    img_array = img_array.astype(np.float32)
+    #img_array = cv2.imdecode(np.fromstring(img_stream.read(), np.uint8), cv2.IMREAD_COLOR).astype(np.float32)
     # we have 224x224, resize to 299x299 for shape (224, 224, 3)
     # ToDo: target size could vary, depending on the pre-trained model, should auto-adjust
     img299 = cv2.resize(img_array, dsize=(299, 299), interpolation=cv2.INTER_LINEAR)
