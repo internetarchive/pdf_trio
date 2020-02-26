@@ -10,6 +10,12 @@ __pycache__/
 [Tt]humbs.db
 *.DS_Store
 *.log
+#  intellij PyCharm local files
+misc.xml
+modules.xml
+pdf_trio.iml
+vcs.xml
+workspace.xml
 
 !.gitlab-ci.yml
 !.travis.yml

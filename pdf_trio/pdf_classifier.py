@@ -23,14 +23,10 @@ import os
 import time
 import json
 import logging
-import argparse
-import subprocess
 
-from cv2 import cv2  # pip install opencv-python  to get this
 import numpy as np
 import requests
 import fasttext
-from fasttext import load_model
 
 from pdf_trio import text_prep
 from pdf_trio import pdf_util
@@ -101,7 +97,7 @@ class PdfClassifier:
         if not 'bert_model' in self.version_map:
             self.version_map['bert_model'] = self.get_tf_model_version(self.bert_tf_server_url)
 
-    def classify_pdf_multi(self, modes, pdf_filestorage):
+    def classify_pdf_multi(self, modes, pdf_content, trace_name):
         """
         Use the modes param to pick subclassifiers and make an ensemble conclusion.
 
@@ -123,7 +119,8 @@ class PdfClassifier:
             }
 
         :param modes:  comma sep list of 1 or more {auto, image, linear, bert, all}
-        :param pdf_filestorage: as FileStorage object (contains a stream).
+        :param pdf_content: as binary string object.
+        :param trace_name the filename on the client, for traceability
         :return: map
         """
 
@@ -136,15 +133,11 @@ class PdfClassifier:
         # rewrite mode_list if 'all' is requested
         if 'all' in mode_list:
             mode_list = ['image', 'linear', 'bert']
-        # write pdf content to tmp file
-        tmp_pdf_name = pdf_util.tmp_file_name()
-        pdf_filestorage.save(tmp_pdf_name)
-        log.debug("stored pdf_content for %s in %s" % (pdf_filestorage.filename, tmp_pdf_name))
         # look ahead to see if text is required, so we can extract that now
         if ('linear' in mode_list) or ('bert' in mode_list) or ('auto' in mode_list):
             # extract text
             start = time.time()
-            pdf_raw_text = pdf_util.extract_pdf_text(tmp_pdf_name)
+            pdf_raw_text = pdf_util.extract_pdf_text(pdf_content, trace_name)
             timing['extract_text'] = time.time() - start
             if len(pdf_raw_text) < 300:
                 pdf_token_list = []  # too short to be useful
@@ -170,40 +163,35 @@ class PdfClassifier:
             else:
                 # no tokens, so use image
                 start = time.time()
-                jpg_file_page0 = pdf_util.extract_pdf_image(tmp_pdf_name)
-                timing['extract_image'] = time.time() - start
-                # classify pdf_image_page0
-                start = time.time()
-                confidence_image = self.classify_pdf_image(jpg_file_page0)
-                timing['classify_image'] = time.time() - start
-                results['image_score'] = confidence_image
-                confidence_values.append(confidence_image)
-                # remove tmp jpg
-                if logging.getLogger().getEffectiveLevel() != logging.DEBUG:
-                    pdf_util.remove_tmp_file(jpg_file_page0)
+                image_array_page0 = pdf_util.extract_pdf_image(pdf_content, trace_name)
+                if image_array_page0 is not None:
+                    timing['extract_image'] = time.time() - start
+                    # classify pdf_image_page0
+                    start = time.time()
+                    confidence_image = self.classify_pdf_image(image_array_page0, trace_name)
+                    timing['classify_image'] = time.time() - start
+                    results['image_score'] = confidence_image
+                    confidence_values.append(confidence_image)
         else:
             # apply named classifiers
             for classifier in mode_list:
                 if classifier == "image":
                     start = time.time()
-                    jpg_file_page0 = pdf_util.extract_pdf_image(tmp_pdf_name)
+                    image_array_page0 = pdf_util.extract_pdf_image(pdf_content, trace_name)
                     timing['extract_image'] = time.time() - start
-                    if not jpg_file_page0:
-                        log.debug("no jpg for %s" % (pdf_filestorage.filename))
+                    if image_array_page0 is None:
+                        log.debug("no jpg for %s" % (trace_name))
                         continue  # skip
-                    # classify pdf_image_page0
+                    # classify image_array_page0
                     start = time.time()
-                    confidence_image = self.classify_pdf_image(jpg_file_page0)
+                    confidence_image = self.classify_pdf_image(image_array_page0, trace_name)
                     timing['classify_image'] = time.time() - start
                     results['image_score'] = confidence_image
                     confidence_values.append(confidence_image)
-                    # remove tmp jpg
-                    if logging.getLogger().getEffectiveLevel() != logging.DEBUG:
-                        pdf_util.remove_tmp_file(jpg_file_page0)
                 elif classifier == "linear":
                     if len(pdf_token_list) == 0:
                         # cannot use this classifier if no tokens extracted
-                        log.debug("no tokens extracted for %s" % (pdf_filestorage.filename))
+                        log.debug("no tokens extracted for %s" % (trace_name))
                         continue  # skip
                     start = time.time()
                     confidence_linear = self.classify_pdf_linear(pdf_token_list)
@@ -213,7 +201,7 @@ class PdfClassifier:
                 elif classifier == "bert":
                     if len(pdf_token_list) == 0:
                         # cannot use this classifier if no tokens extracted
-                        log.debug("no tokens extracted for %s" % (pdf_filestorage.filename))
+                        log.debug("no tokens extracted for %s" % (trace_name))
                         continue  # skip
                     pdf_token_list_trimmed = text_prep.trim_tokens(pdf_token_list, 512)
                     start = time.time()
@@ -223,8 +211,6 @@ class PdfClassifier:
                     confidence_values.append(confidence_bert)
                 else:
                     log.warning("ignoring unknown classifier ref: " + classifier)
-        if logging.getLogger().getEffectiveLevel() != logging.DEBUG:
-            pdf_util.remove_tmp_file(tmp_pdf_name)
         #  compute 'ensemble_score ' using confidence_values
         if len(confidence_values) != 0:
             confidence_overall = sum(confidence_values) / len(confidence_values)
@@ -349,18 +335,16 @@ class PdfClassifier:
         return ret
 
 
-    def classify_pdf_image(self, jpg_file):
+    def classify_pdf_image(self, img_as_array, trace_name):
         """
         Apply image model to content image using tensorflow-serving.
 
-        :param jpg_file: tmp jpg image file name, full path.
+        :param img_as_array: image as array with shape (299. 299, 3).
+        :param trace_name: name for tracing an example, used in log msgs.
         :return: encoded confidence as type float with range [0.5,1.0] that example is positive
         """
-        img = cv2.imread(jpg_file).astype(np.float32)
-        # we have 224x224, resize to 299x299 for shape (224, 224, 3)
-        # ToDo: target size could vary, depending on the pre-trained model, should auto-adjust
-        img299 = cv2.resize(img, dsize=(299, 299), interpolation=cv2.INTER_LINEAR)
-        my_images = np.reshape(img299, (-1, 299, 299, 3))
+        # make array of image arrays
+        my_images = np.reshape(img_as_array, (-1, 299, 299, 3))
         req_json = json.dumps({
             "signature_name": "serving_default",
             "instances": my_images.tolist(),
@@ -376,7 +360,7 @@ class PdfClassifier:
         confidence_other = response_vec[0]
         confidence_research = response_vec[1]
         log.debug("image classify %s  other=%.2f research=%.2f",
-            jpg_file, confidence_other, confidence_research)
+            trace_name, confidence_other, confidence_research)
         if confidence_research > confidence_other:
             ret = self.encode_confidence("research", confidence_research)
         else:

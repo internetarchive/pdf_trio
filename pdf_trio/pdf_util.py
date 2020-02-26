@@ -23,16 +23,13 @@ We use pdftotext (exec'ed) because it works more often than PyPDF2.
 Images from PDFs are created by ImageMagick (and ghostscript).
 """
 
-import os
-import time
-import pathlib
+from io import BytesIO
 import time
 import shutil
 import subprocess
-import random
-import datetime
-import atexit
 import logging
+import numpy as np
+from cv2 import cv2  # pip install opencv-python  to get this
 
 log = logging.getLogger(__name__)
 
@@ -44,118 +41,104 @@ if not shutil.which('convert'):
     print("ERROR: you do not have convert from ImageMagick installed. Install it first before calling this script")
     log.error("the required executable convert from ImageMagick which is not installed")
 
-TEMP = os.environ.get('TEMP')
-if TEMP is None:
-    TEMP = "/tmp"
 
-start_datetime = datetime.datetime.now()
-start_timestamp = start_datetime.isoformat().split('.')[0]
-start_timestamp = start_timestamp.replace(":", "").replace("-", "")
-tmp_area = TEMP + "/research-pub-area_" + start_timestamp
-tmp_path = pathlib.Path(tmp_area)
-tmp_path.mkdir(parents=True, exist_ok=True)
-
-
-def exit_handler():
-    shutil.rmtree(tmp_area, ignore_errors=True)
-
-
-atexit.register(exit_handler)  # remove tmp_area on exit
-
-
-def tmp_file_name(prefix="f", suffix=".pdf"):
-    return str(tmp_path) + "/" + str(prefix) + str(random.randint(1, 1000000000)) + suffix
-
-
-def write_tmp_file(content):
-    """
-    :param content: byte string to write into a temp file
-    :return: full path to the file
-    """
-    name = tmp_file_name()
-    with open(name, 'wb') as f:
-        f.write(content)
-    return name
-
-
-def remove_tmp_file(name):
-    if os.path.exists(name):
-        os.remove(name)
-
-
-def extract_pdf_text(pdf_tmp_file):
+def extract_pdf_text(pdf_content, trace_name):
     """
     Extract text from PDF. The text is extracted in human-reading order. EOL chars are present.
-    :param pdf_tmp_file: path to (temp) pdf file.
-    :return: string of extracted human readable text from PDF, zero length string if could not extract or no text.
+    :param pdf_content: as binary string object.
+    :param trace_name the filename on the client, for traceability
+    :return: text string of extracted human readable text from PDF, zero length string if could not extract or no text.
     """
-    txt_name = pdf_tmp_file + ".txt"
-    # start subprocess
-    p_args = ['pdftotext', '-nopgbrk', '-eol', 'unix', '-enc', 'UTF-8', pdf_tmp_file, txt_name]
+    text = ""
+    # specify UTF-8 for output
+    p_args = ['pdftotext', '-nopgbrk', '-eol', 'unix', '-enc', 'UTF-8', "-", "-"]
     t0 = time.time()
-    pp = subprocess.Popen(p_args, encoding='utf-8', bufsize=1, universal_newlines=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # start subprocess, encoding not specified since input must be binary
+    pp = subprocess.Popen(p_args, bufsize=262144, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # pump the content into stdin
+    try:
+        pp.stdin.write(pdf_content)
+    except IOError:
+        pass
+    text_binary = b""
+    # wait to finish, drain pipes
     try:
         outs, errs = pp.communicate(timeout=30)
         # outs and errs are file handles
+        #  outs was read as binary, but it is actually UTF-8, so we decode here
+        text_binary = outs
     except subprocess.TimeoutExpired:
         pp.kill()
         # drain residue so subprocess can really finish
         outs, errs = pp.communicate()
-        log.warning("pdftotext, command did not terminate in %.2f seconds, terminating." % (time.time() - t0))
-    # get text from file
-    with open(txt_name, 'r', encoding='utf-8') as f:
-        text = f.read()
-    remove_tmp_file(txt_name)
+        text = outs  # get at least some text from file
+        log.warning("pdftotext, processing for %s did not terminate in %.2f seconds, terminating." %
+                    (trace_name, time.time() - t0))
+    # convert from binary utf-8 string to text string
+    try:
+        text = text_binary.decode("utf-8")
+    except UnicodeError:
+        log.warning("pdftotext, processing for %s utf-8 decode exception occurred." % (trace_name))
     return text
 
 
-def extract_pdf_image(pdf_tmp_file, page=0):
+def extract_pdf_image(pdf_content, trace_name, page=0):
     """
     ImageMagick (and ghostscript) is used to generate the image.
 
-    Caller is responsible for removing the jpg.
+    Image is returned as an array of floats with shape (224, 224, 3).
 
-    :param pdf_tmp_file: path to temp file holding pdf content.
+    :param pdf_content: as binary string object.
+    :param trace_name the filename on the client, for traceability
     :param page:  page number (from 0)
-    :return: filename of jpg image in temporary area, caller should remove it
-    when done to avoid accumulation, None is returned if no good image
+    :return: array of floats with shape (299, 299, 3), None is returned if no good image
     produced.
     """
-    jpg_name = pdf_tmp_file + ".jpg"
+    jpg_content = None
     pageSpec = "[" + str(page) + "]"
     # start subprocess
     # Use pipes so that stderr can be collected (and not just mixed into main process stderr, hiding other errors)
 
     # the parameters here must match training to maximize accuracy
-    convert_cmd = ['convert', pdf_tmp_file + pageSpec, '-background', 'white',
+    convert_cmd = ['convert', "pdf:-" + pageSpec, '-background', 'white',
                    '-alpha', 'remove', '-equalize', '-quality', '95',
                    '-thumbnail', '156x', '-gravity', 'north', '-extent',
-                   '224x224', jpg_name]
+                   '224x224', "jpg:-"]
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         log.debug("ImageMagick Command=" + " ".join(convert_cmd))
     t0 = time.time()
-    pp = subprocess.Popen(convert_cmd, encoding='utf-8', bufsize=1, universal_newlines=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    pp = subprocess.Popen(convert_cmd, bufsize=262144, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
+    try:
+        pp.stdin.write(pdf_content)
+    except IOError:
+        pass
+
     try:
         outs, errs = pp.communicate(timeout=30)
+        # get jpg bytes
+        jpg_content = outs
+        # check if jpg sufficient size
+        if len(jpg_content) <= 3000:
+            jpg_content = None  # probably a blank image, so ignore it
+            log.warning("ignoring blank jpg produced by imagemagick for %s" % trace_name)
     except subprocess.TimeoutExpired:
         pp.kill()
         # drain residue so subprocess can really finish
         outs, errs = pp.communicate()
         log.warning("convert command (imagemagick) on %s did not terminate in %.2f seconds, terminating." %
-                    (pdf_tmp_file, time.time()-t0))
-    # check if jpg file exists and sufficient size
-    if os.path.exists(jpg_name):
-        if os.path.getsize(jpg_name) <= 3000:
-            # jpg too small, most likely blank
-            log.debug("jpg too small for %s, so assumed to be a blank page; removing" % pdf_tmp_file)
-            remove_tmp_file(jpg_name)
-            return None
-        else:
-            # jpg file exists, sufficient size
-            return jpg_name
-    else:
-        # no jpg file was produced
-        log.warning("no jpg produced by imagemagick for %s" % pdf_tmp_file)
+                    (trace_name, time.time()-t0))
+    if jpg_content is None:
         return None
+    # convert jpg_content to image as array
+    img_stream = BytesIO(jpg_content)
+    img_array = cv2.imdecode(np.frombuffer(img_stream.read(), np.uint8), cv2.IMREAD_COLOR)
+    if img_array is None:
+        log.warning("imdecode failed for %s" % (trace_name))
+        return None
+    img_array = img_array.astype(np.float32)
+    #img_array = cv2.imdecode(np.fromstring(img_stream.read(), np.uint8), cv2.IMREAD_COLOR).astype(np.float32)
+    # we have 224x224, resize to 299x299 for shape (224, 224, 3)
+    # ToDo: target size could vary, depending on the pre-trained model, should auto-adjust
+    img299 = cv2.resize(img_array, dsize=(299, 299), interpolation=cv2.INTER_LINEAR)
+    return img299

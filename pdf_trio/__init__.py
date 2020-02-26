@@ -17,16 +17,24 @@ limitations under the License.
 
 import sys
 import html
+from io import BytesIO
 import raven
 from raven.contrib.flask import Sentry
-from flask import Flask
+from flask import Flask, Request
 
 # this is the canonical location for version of this module
-__version__ = "0.1.0"
+__version__ = "0.1.1"
+
+
+class RAMOnlyRequest(Request):
+    def _get_file_stream(self, total_content_length, content_type, filename=None, content_length=None):
+        return BytesIO()
 
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    # override _get_file_stream() so we avoid spooling to disk
+    app.request_class = RAMOnlyRequest
 
     try:
         GIT_RELEASE = raven.fetch_git_sha('.')
