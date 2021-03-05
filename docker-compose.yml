@@ -20,8 +20,8 @@ services:
     ports:
       - "3939:3939"
     environment:
-      TF_IMAGE_SERVER_URL: "http://localhost:8501/v1"
-      TF_BERT_SERVER_URL: "http://localhost:8501/v1"
+      TF_IMAGE_SERVER_URL: "http://tfserving:8501/v1"
+      TF_BERT_SERVER_URL: "http://tfserving:8501/v1"
       FT_MODEL: "/models/fastText/dataset20000_20190818.bin"
       FT_URL_MODEL: "/models/fastText/url_dataset20000_20190817.bin"
       TF_BERT_VOCAB_PATH: "/models/bert_model/multi_cased_L-12_H-768_A-12_vocab.txt"
