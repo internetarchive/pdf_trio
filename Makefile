@@ -22,9 +22,9 @@ test: ## Run all tests and lints
 coverage: ## Run tests, collecting code coverage
 	pipenv run pytest --cov --cov-report html --ignore extra/
 
-.PHONY: dev
-dev: ## Run web service locally, with reloading
-	pipenv run ./fatcat_webface.py --debug
+.PHONY: serve
+serve: ## Run web service locally
+	pipenv run flask run -h localhost
 
 .PHONY: fetch-models
 fetch-models: ## Download model files from archive.org
